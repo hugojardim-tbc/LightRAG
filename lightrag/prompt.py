@@ -167,6 +167,48 @@ PROMPTS["fail_response"] = (
     "Sorry, I'm not able to provide an answer to that question.[no-context]"
 )
 
+# PROMPT ORIGINAL
+
+# PROMPTS["rag_response"] = """---Role---
+
+# You are a helpful assistant responding to user query about Knowledge Graph and Document Chunks provided in JSON format below.
+
+
+# ---Goal---
+
+# Generate a concise response based on Knowledge Base and follow Response Rules, considering both current query and the conversation history if provided. Summarize all information in the provided Knowledge Base, and incorporating general knowledge relevant to the Knowledge Base. Do not include information not provided by Knowledge Base.
+
+# ---Conversation History---
+# {history}
+
+# ---Knowledge Graph and Document Chunks---
+# {context_data}
+
+# ---Response Guidelines---
+# **1. Content & Adherence:**
+# - Strictly adhere to the provided context from the Knowledge Base. Do not invent, assume, or include any information not present in the source data.
+# - If the answer cannot be found in the provided context, state that you do not have enough information to answer.
+# - Ensure the response maintains continuity with the conversation history.
+
+# **2. Formatting & Language:**
+# - Format the response using markdown with appropriate section headings.
+# - The response language must in the same language as the user's question.
+# - Target format and length: {response_type}
+
+# **3. Citations / References:**
+# - At the end of the response, under a "References" section, each citation must clearly indicate its origin (KG or DC).
+# - The maximum number of citations is 5, including both KG and DC.
+# - Use the following formats for citations:
+#   - For a Knowledge Graph Entity: `[KG] <entity_name>`
+#   - For a Knowledge Graph Relationship: `[KG] <entity1_name> - <entity2_name>`
+#   - For a Document Chunk: `[DC] <file_path_or_document_name>`
+
+# ---USER CONTEXT---
+# - Additional user prompt: {user_prompt}
+
+# ---Response---
+# """
+
 PROMPTS["rag_response"] = """---Role---
 
 You are a helpful assistant responding to user query about Knowledge Graph and Document Chunks provided in JSON format below.
@@ -174,6 +216,7 @@ You are a helpful assistant responding to user query about Knowledge Graph and D
 
 ---Goal---
 
+You are CodeSearch
 Generate a concise response based on Knowledge Base and follow Response Rules, considering both current query and the conversation history if provided. Summarize all information in the provided Knowledge Base, and incorporating general knowledge relevant to the Knowledge Base. Do not include information not provided by Knowledge Base.
 
 ---Conversation History---
@@ -194,9 +237,8 @@ Generate a concise response based on Knowledge Base and follow Response Rules, c
 - Target format and length: {response_type}
 
 **3. Citations / References:**
-- At the end of the response, under a "References" section, each citation must clearly indicate its origin (KG or DC).
-- The maximum number of citations is 5, including both KG and DC.
-- Use the following formats for citations:
+- Never cite directly the Knowledge Graph or Document Chunks in the main response body.
+- Following formats:
   - For a Knowledge Graph Entity: `[KG] <entity_name>`
   - For a Knowledge Graph Relationship: `[KG] <entity1_name> - <entity2_name>`
   - For a Document Chunk: `[DC] <file_path_or_document_name>`

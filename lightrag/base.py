@@ -93,12 +93,15 @@ class QueryParam:
 
     only_need_context: bool = False
     """If True, only returns the retrieved context without generating a response."""
-
+    
     only_need_prompt: bool = False
     """If True, only returns the generated prompt without producing a response."""
 
     response_type: str = "Multiple Paragraphs"
     """Defines the response format. Examples: 'Multiple Paragraphs', 'Single Paragraph', 'Bullet Points'."""
+
+    context: str | None = None
+    """Directly provides context for the query, bypassing retrieval mechanisms."""
 
     stream: bool = False
     """If True, enables streaming output for real-time responses."""
