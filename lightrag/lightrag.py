@@ -2058,7 +2058,7 @@ class LightRAG:
         query: str,
         param: QueryParam = QueryParam(),
         system_prompt: str | None = None,
-    ) -> str | AsyncIterator[str]:
+    ) -> tuple[str | AsyncIterator[str], list[str]]:
         """
         Perform a async query.
 
@@ -2075,7 +2075,7 @@ class LightRAG:
         global_config = asdict(self)
 
         if param.mode in ["local", "global", "hybrid", "mix"]:
-            response = await kg_query(
+            response, paths = await kg_query(
                 query.strip(),
                 self.chunk_entity_relation_graph,
                 self.entities_vdb,
@@ -2088,7 +2088,7 @@ class LightRAG:
                 chunks_vdb=self.chunks_vdb,
             )
         elif param.mode == "naive":
-            response = await naive_query(
+            response, paths = await naive_query(
                 query.strip(),
                 self.chunks_vdb,
                 param,
@@ -2103,7 +2103,7 @@ class LightRAG:
             use_llm_func = partial(use_llm_func, _priority=8)
 
             param.stream = True if param.stream is None else param.stream
-            response = await use_llm_func(
+            response, paths = await use_llm_func(
                 query.strip(),
                 system_prompt=system_prompt,
                 history_messages=param.conversation_history,
@@ -2112,7 +2112,7 @@ class LightRAG:
         else:
             raise ValueError(f"Unknown mode {param.mode}")
         await self._query_done()
-        return response
+        return response, paths
 
     async def _query_done(self):
         await self.llm_response_cache.index_done_callback()

@@ -2108,9 +2108,9 @@ async def kg_query(
     hashing_kv: BaseKVStorage | None = None,
     system_prompt: str | None = None,
     chunks_vdb: BaseVectorStorage = None,
-) -> str | AsyncIterator[str]:
+) -> tuple[str | AsyncIterator[str], list[str]]:
     if not query:
-        return PROMPTS["fail_response"]
+        return PROMPTS["fail_response"], []
 
     if query_param.model_func:
         use_model_func = query_param.model_func
@@ -2138,47 +2138,52 @@ async def kg_query(
         hashing_kv, args_hash, query, query_param.mode, cache_type="query"
     )
     if cached_response is not None:
-        return cached_response
+        return cached_response, []
 
-    hl_keywords, ll_keywords = await get_keywords_from_query(
-        query, query_param, global_config, hashing_kv
-    )
+    if not query_param.context:
+        hl_keywords, ll_keywords = await get_keywords_from_query(
+            query, query_param, global_config, hashing_kv
+        )
 
-    logger.debug(f"High-level keywords: {hl_keywords}")
-    logger.debug(f"Low-level  keywords: {ll_keywords}")
+        logger.debug(f"High-level keywords: {hl_keywords}")
+        logger.debug(f"Low-level  keywords: {ll_keywords}")
 
-    # Handle empty keywords
-    if ll_keywords == [] and query_param.mode in ["local", "hybrid", "mix"]:
-        logger.warning("low_level_keywords is empty")
-    if hl_keywords == [] and query_param.mode in ["global", "hybrid", "mix"]:
-        logger.warning("high_level_keywords is empty")
-    if hl_keywords == [] and ll_keywords == []:
-        if len(query) < 50:
-            logger.warning(f"Forced low_level_keywords to origin query: {query}")
-            ll_keywords = [query]
-        else:
-            return PROMPTS["fail_response"]
+        # Handle empty keywords
+        if ll_keywords == [] and query_param.mode in ["local", "hybrid", "mix"]:
+            logger.warning("low_level_keywords is empty")
+        if hl_keywords == [] and query_param.mode in ["global", "hybrid", "mix"]:
+            logger.warning("high_level_keywords is empty")
+        if hl_keywords == [] and ll_keywords == []:
+            if len(query) < 50:
+                logger.warning(f"Forced low_level_keywords to origin query: {query}")
+                ll_keywords = [query]
+            else:
+                return PROMPTS["fail_response"]
 
-    ll_keywords_str = ", ".join(ll_keywords) if ll_keywords else ""
-    hl_keywords_str = ", ".join(hl_keywords) if hl_keywords else ""
+        ll_keywords_str = ", ".join(ll_keywords) if ll_keywords else ""
+        hl_keywords_str = ", ".join(hl_keywords) if hl_keywords else ""
 
-    # Build context
-    context = await _build_query_context(
-        query,
-        ll_keywords_str,
-        hl_keywords_str,
-        knowledge_graph_inst,
-        entities_vdb,
-        relationships_vdb,
-        text_chunks_db,
-        query_param,
-        chunks_vdb,
-    )
+        # Build context
+        context, paths = await _build_query_context(
+            query,
+            ll_keywords_str,
+            hl_keywords_str,
+            knowledge_graph_inst,
+            entities_vdb,
+            relationships_vdb,
+            text_chunks_db,
+            query_param,
+            chunks_vdb,
+        )
+    else:
+        context = query_param.context
+        paths = []
+
 
     if query_param.only_need_context:
-        return context if context is not None else PROMPTS["fail_response"]
+        return context if context is not None else PROMPTS["fail_response"], paths
     if context is None:
-        return PROMPTS["fail_response"]
+        return PROMPTS["fail_response"], paths
 
     # Process conversation history
     history_context = ""
@@ -2253,7 +2258,7 @@ async def kg_query(
             ),
         )
 
-    return response
+    return response, paths
 
 
 async def get_keywords_from_query(
@@ -2623,6 +2628,30 @@ async def _build_query_context(
             if rel_key not in seen_relations:
                 final_relations.append(relation)
                 seen_relations.add(rel_key)
+
+    paths = []
+    _seen_paths = set()
+    for relation in final_relations:
+        fp = relation.get("file_path")
+        if not fp:
+            continue
+
+        # support joined string with GRAPH_FIELD_SEP, list/tuple, or single string
+        if isinstance(fp, str):
+            parts = fp.split(GRAPH_FIELD_SEP)
+        elif isinstance(fp, (list, tuple)):
+            parts = list(fp)
+        else:
+            parts = [str(fp)]
+
+        for p in parts:
+            if p is None:
+                continue
+            p = str(p).strip()
+            if not p or p in _seen_paths:
+                continue
+            _seen_paths.add(p)
+            paths.append(p)
 
     # Generate entities context
     entities_context = []
@@ -3000,7 +3029,7 @@ async def _build_query_context(
 ```
 
 """
-    return result
+    return result, paths
 
 
 async def _get_node_data(
